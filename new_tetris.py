@@ -29,13 +29,13 @@ BLOCKS = [
   	[1, 1],
 	[0, 1]],
 
-	[[1, 0],
+	[[1, 1],
   	[1, 0],
-	[1, 1]],
+	[1, 0]],
 
-	[[0, 1],
+	[[1, 1],
   	[0, 1],
-	[1, 1]],
+	[0, 1]],
 
 	[[0, 1, 0],
   	[1, 1, 1]]
@@ -53,10 +53,15 @@ HORIZONTAL_WALL, VERTICAL_WALL = "━", "┃"
 SCOREBOARD_WIDTH, SCOREBOARD_HEIGHT = 18 + 2, 1 + 2
 GAME_BOARD_WIDTH, GAME_BOARD_HEIGHT = 20 + 2, 20 + 2
 GAME_WIDTH, GAME_HEIGHT = 10, 20
-RIGHT_MENU_WIDTH, RIGHT_MENU_HEIGHT = 10 + 2, 8 + 2
+RIGHT_MENU_WIDTH, RIGHT_MENU_HEIGHT = 20 + 2, 8 + 2
+BLOCK_HOLD_WIDTH, BLOCK_HOLD_HEIGHT = SCOREBOARD_WIDTH, 10
+INST_MENU_WIDTH, INST_MENU_HEIGHT = RIGHT_MENU_WIDTH, GAME_BOARD_HEIGHT - RIGHT_MENU_HEIGHT
+
 BOARD_HEIGHT = 25
 GAME_BOARD_OFFSET = SCOREBOARD_WIDTH
 RIGHT_MENU_OFFSET = GAME_BOARD_OFFSET + GAME_BOARD_WIDTH
+BLOCK_HOLD_OFFSET = SCOREBOARD_HEIGHT
+INST_MENU_OFFSET_X, INST_MENU_OFFSET_Y = RIGHT_MENU_OFFSET, RIGHT_MENU_HEIGHT
 
 START_X, START_Y = 5, 0
 
@@ -71,6 +76,8 @@ class Board:
         self.scoreboard_menu = self.stdscr.subwin(SCOREBOARD_HEIGHT, SCOREBOARD_WIDTH, 0, 0)
         self.main_board = self.stdscr.subwin(GAME_BOARD_HEIGHT, GAME_BOARD_WIDTH, 0, GAME_BOARD_OFFSET)
         self.right_menu = self.stdscr.subwin(RIGHT_MENU_HEIGHT, RIGHT_MENU_WIDTH, 0, RIGHT_MENU_OFFSET)
+        self.block_hold_menu = self.stdscr.subwin(BLOCK_HOLD_HEIGHT, BLOCK_HOLD_WIDTH, BLOCK_HOLD_OFFSET, 0)
+        self.instructions_menu = self.stdscr.subwin(INST_MENU_HEIGHT, INST_MENU_WIDTH, INST_MENU_OFFSET_Y, INST_MENU_OFFSET_X)
         
         curses.noecho()
         self.stdscr.keypad(True)
@@ -81,6 +88,9 @@ class Board:
         self.timing = 0.5
         self.lines_cleared = 0
         self.next_block = Block(START_X, START_Y)
+
+        self.can_hold = 0
+        self.block_held = None
 
     def game_over(self):
         global GAME_RUNNING
@@ -94,7 +104,6 @@ class Board:
         GAME_RUNNING = 1
         self.create_all_boards()
         self.get_new_block()
-
         self.update_board()
         self.game_over()
 
@@ -143,11 +152,12 @@ class Board:
             self.check_lines()
 
     def get_new_block(self):
+        self.can_hold = 1
         self.blocks = deepcopy(self.blocks_copy)
         self.current_block = self.next_block
         self.next_block = Block(START_X, START_Y)
         self.update_next_block()
-        self.insert_block_into_board(self.current_block.get_x(), self.current_block.get_y()) 
+        self.insert_block_into_board(self.current_block.get_x(), self.current_block.get_y())
         self.gravity_proc = threading.Thread(target=self.block_gravity)
         self.gravity_proc.start()
 
@@ -161,10 +171,18 @@ class Board:
                 self.change_position(is_right=1)
             elif key == curses.KEY_UP:
                 self.rotate_block(clockwise=1)
+            elif key == curses.KEY_DOWN:
+                try:
+                    if not self.check_collision(self.current_block.get_x(), self.current_block.get_y() + 1):
+                        self.shift_block(self.current_block.get_x(), self.current_block.get_y() + 1)
+                except:
+                    pass
             elif key == ord(' '):
                 self.hard_drop()
             elif key == ord('z'):
                 self.rotate_block(clockwise=0)
+            elif key == ord('c'):
+                self.hold_block()
             self.stdscr.refresh()
 
     def insert_block_into_board(self, x, y):
@@ -174,8 +192,8 @@ class Board:
 
         for height in range(block_height):
             for width in range(len(block[0])):
-                    if block[height][width]:
-                        self.blocks_copy[y + height][x + width] = 1
+                if block[height][width]:
+                    self.blocks_copy[y + height][x + width] = 1
 
     def shift_block(self, new_x, new_y):
         self.current_block.update_x(new_x)
@@ -246,8 +264,33 @@ class Board:
                 break
             i += 1
         self.shift_block(self.current_block.get_x(), self.current_block.get_y() + i - 1)
+        
 
-    # Board and menu updates/creations 
+    def hold_block(self):
+        if self.can_hold:
+            if self.block_held is None:
+                self.blocks_copy = deepcopy(self.blocks)
+                self.update_main_board(self.blocks_copy)
+                self.block_held = self.current_block
+                self.get_new_block()
+            else:
+                self.block_held, self.current_block = self.current_block, self.block_held
+            self.can_hold = 0
+            self.update_hold_menu()
+            self.block_held.update_x(START_X)
+            self.block_held.update_y(START_Y)
+
+    # Board and menu updates/creations
+    def update_hold_menu(self):
+        self.block_hold_menu.clear()
+        self.block_hold_menu.box()
+        self.block_hold_menu.addstr(1, 1, "Holding:")
+        block = self.block_held.return_block()
+        for y in range(len(block)):
+            self.block_hold_menu.addstr(BLOCK_HOLD_HEIGHT//3 + y + 1, BLOCK_HOLD_WIDTH//3 + 2, ''.join([SQUARE if x else EMPTY_BLOCK for x in block[y]]))
+        
+        self.block_hold_menu.refresh()
+
     def update_score(self):
         self.scoreboard_menu.addstr(1, 1, f"Score: {self.score}")
         self.scoreboard_menu.refresh()
@@ -266,6 +309,8 @@ class Board:
         self.create_scoreboard()
         self.create_main_board()
         self.create_right_menu()
+        self.create_block_hold_menu()
+        self.create_instructions_menu()
         self.scoreboard_menu.addstr(1, 1, f"Score: {self.score}")
 
     def update_next_block(self):
@@ -274,7 +319,7 @@ class Board:
         next_block = self.next_block.return_block()
         self.right_menu.addstr(1, 1, "Next Block:")
         for y in range(len(next_block)):
-            self.right_menu.addstr(RIGHT_MENU_HEIGHT//3 + y + 1, RIGHT_MENU_WIDTH//3, ''.join([SQUARE if x else EMPTY_BLOCK for x in next_block[y]]))
+            self.right_menu.addstr(RIGHT_MENU_HEIGHT//3 + y + 1, RIGHT_MENU_WIDTH//3 + 2, ''.join([SQUARE if x else EMPTY_BLOCK for x in next_block[y]]))
         self.right_menu.refresh()
 
     def create_right_menu(self):
@@ -285,6 +330,19 @@ class Board:
 
     def create_scoreboard(self):
         self.scoreboard_menu.box()
+    
+    def create_block_hold_menu(self):
+        self.block_hold_menu.box()
+        self.block_hold_menu.addstr(1, 1, "Holding:")
+    
+    def create_instructions_menu(self):
+        self.instructions_menu.box()
+        self.instructions_menu.addstr(1,1, "Key Bindings:")
+        self.instructions_menu.addstr(3,1, "LEFT/RIGHT: Movement")
+        self.instructions_menu.addstr(4,1, "UP: rotate clws")
+        self.instructions_menu.addstr(5,1, "c: Hold")
+        self.instructions_menu.addstr(6,1, "z: rotate anticlws")
+        self.instructions_menu.addstr(7,1, "<space>: hard drop")
 
     def get_self_blocks(self):
         return self.blocks
