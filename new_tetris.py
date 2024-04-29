@@ -65,6 +65,7 @@ INST_MENU_OFFSET_X, INST_MENU_OFFSET_Y = RIGHT_MENU_OFFSET, RIGHT_MENU_HEIGHT
 
 START_X, START_Y = 5, 0
 
+
 class Board:
     def __init__(self):
         self.score = 0
@@ -72,7 +73,12 @@ class Board:
         self.blocks = [rows.copy() for _ in range(GAME_HEIGHT)]
         self.blocks_copy = deepcopy(self.blocks)
         self.current_block = Block(START_X, START_Y)
-        self.stdscr = curses.initscr()
+        print('test')
+        try:
+            self.stdscr = curses.initscr()
+        except Exception as e:
+            print(e)
+        print("sss")
         self.scoreboard_menu = self.stdscr.subwin(SCOREBOARD_HEIGHT, SCOREBOARD_WIDTH, 0, 0)
         self.main_board = self.stdscr.subwin(GAME_BOARD_HEIGHT, GAME_BOARD_WIDTH, 0, GAME_BOARD_OFFSET)
         self.right_menu = self.stdscr.subwin(RIGHT_MENU_HEIGHT, RIGHT_MENU_WIDTH, 0, RIGHT_MENU_OFFSET)
@@ -110,7 +116,7 @@ class Board:
     def is_gameover(self):
         block = self.current_block.return_block()
         block_height = len(block)
-        
+
         for height in range(block_height):
             for width in range(len(block[0])):
                 if block[height][width] and self.blocks[START_Y + height][START_X + width]:
@@ -234,7 +240,7 @@ class Board:
     def check_lines(self):
         lines = []
         for line_num in range(len(self.blocks)):
-             if len(self.blocks[line_num]) == sum(self.blocks[line_num]):
+            if len(self.blocks[line_num]) == sum(self.blocks[line_num]):
                 lines.append(line_num)
         if len(lines) != 0:
             self.clear_lines(lines)
@@ -247,7 +253,7 @@ class Board:
         self.score += 10 * multiplier
         self.lines_cleared += len(lines)
         if (self.lines_cleared + 1) % 11 == 0:
-             self.timing /= 1.4
+            self.timing /= 1.4
         self.blocks_copy = deepcopy(self.blocks)
         self.update_score()
         self.update_main_board(self.blocks_copy)
@@ -264,7 +270,7 @@ class Board:
                 break
             i += 1
         self.shift_block(self.current_block.get_x(), self.current_block.get_y() + i - 1)
-        
+
 
     def hold_block(self):
         if self.can_hold:
@@ -288,13 +294,13 @@ class Board:
         block = self.block_held.return_block()
         for y in range(len(block)):
             self.block_hold_menu.addstr(BLOCK_HOLD_HEIGHT//3 + y + 1, BLOCK_HOLD_WIDTH//3 + 2, ''.join([SQUARE if x else EMPTY_BLOCK for x in block[y]]))
-        
+
         self.block_hold_menu.refresh()
 
     def update_score(self):
         self.scoreboard_menu.addstr(1, 1, f"Score: {self.score}")
         self.scoreboard_menu.refresh()
-    
+
     def update_main_board(self, blocks=None):
         if blocks is None:
             blocks = self.blocks
@@ -330,11 +336,11 @@ class Board:
 
     def create_scoreboard(self):
         self.scoreboard_menu.box()
-    
+
     def create_block_hold_menu(self):
         self.block_hold_menu.box()
         self.block_hold_menu.addstr(1, 1, "Holding:")
-    
+
     def create_instructions_menu(self):
         self.instructions_menu.box()
         self.instructions_menu.addstr(1,1, "Key Bindings:")
@@ -349,71 +355,73 @@ class Board:
 
     def get_current_blocks(self):
         return self.current_block
-
+    
 
 class Block:
-	def __init__(self, x, y):
-		self.block_type = random.randint(0, NUM_OF_BLOCK_TYPES - 1)
-		self.block = BLOCKS[self.block_type]
-		self.height = len(self.block)
-		self.width = len(self.block[0])
-		self.x = x
-		self.y = y
+    def __init__(self, x, y):
+        self.block_type = random.randint(0, NUM_OF_BLOCK_TYPES - 1)
+        self.block = BLOCKS[self.block_type]
+        self.height = len(self.block)
+        self.width = len(self.block[0])
+        self.x = x
+        self.y = y
 
-	def create_nblock(self, given_block):
-		new_block = []
-		for block in given_block:
-			b = []
-			for is_block in block:
-				if is_block:
-					b.append(SQUARE)
-				else:
-					b.append(EMPTY_BLOCK)
-			new_block.append(b)		
-		return '\n'.join([''.join(block) for block in new_block])
+    def create_nblock(self, given_block):
+        new_block = []
+        for block in given_block:
+            b = []
+            for is_block in block:
+                if is_block:
+                    b.append(SQUARE)
+                else:
+                    b.append(EMPTY_BLOCK)
+            new_block.append(b)		
+        return '\n'.join([''.join(block) for block in new_block])
 
-	def rotate_anticlockwise(self):
-		self.block = [[self.block[j][i] for j in range(len(self.block))] for i in range(len(self.block[0]) - 1, -1, -1)]
+    def rotate_anticlockwise(self):
+        self.block = [[self.block[j][i] for j in range(len(self.block))] for i in range(len(self.block[0]) - 1, -1, -1)]
 
-	def rotate_clockwise(self):
-		for _ in range(3):
-			self.rotate_anticlockwise()
+    def rotate_clockwise(self):
+        for _ in range(3):
+            self.rotate_anticlockwise()
 
-	def return_block(self):
-		return self.block	
-	def get_x(self):
-		return self.x
+    def return_block(self):
+        return self.block	
 
-	def get_y(self):
-		return self.y
+    def get_x(self):
+        return self.x
 
-	def get_height(self):
-		return self.height
+    def get_y(self):
+        return self.y
 
-	def get_width(self):
-		return self.width
+    def get_height(self):
+        return self.height
 
-	def update_x(self,x):
-		self.x = x
+    def get_width(self):
+        return self.width
 
-	def update_y(self, y):
-		self.y = y
+    def update_x(self,x):
+        self.x = x
 
+    def update_y(self, y):
+        self.y = y
 
 BOARD = Board()
 GAME_RUNNING = 0
 
 
 def signal_handler(sig, frame):
-	global GAME_RUNNING
-	print("Exiting")
-	GAME_RUNNING = 0
-	exit()
+    global GAME_RUNNING
+    print("Exiting")
+    GAME_RUNNING = 0
+    exit()
 
 def main():
-	global BOARD
-	signal.signal(signal.SIGINT, signal_handler)
-	BOARD.start_game()
+    global BOARD
+    print("test")
+    signal.signal(signal.SIGINT, signal_handler)
+    BOARD.start_game()
 
 if __name__=="__main__":
-	main()
+    print("test")
+    main()
