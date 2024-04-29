@@ -1,7 +1,10 @@
 import time, random, os, msvcrt, threading, signal
 from copy import deepcopy
 
-KEY_MAPPINGS = {}
+KEY_MAPPINGS = {"H": "Up",
+				"K": "Left",
+				"P": "Down",
+				"M": "Right"}
 
 BLOCKS = [
 	[[1],
@@ -80,7 +83,6 @@ class Board:
 		
 		for height in range(block_height):
 			for width in range(len(block[0])):
-				print(block[height][width], self.blocks[START_Y + height][START_X + width])
 				if block[height][width] and self.blocks[START_Y + height][START_X + width]:
 					return True
 		return  False
@@ -109,7 +111,7 @@ class Board:
 			self.print_board()
 
 			try:
-				if self.check_collision(self.current_block.get_x(), self.current_block.self_y() + 1):
+				if self.check_collision(self.current_block.get_x(), self.current_block.get_y() + 1):
 					break
 			except Exception as e:
 				break
@@ -216,52 +218,52 @@ class Board:
 
 
 class Block:
-    def __init__(self, x, y):
-        self.block_type = random.randint(0, NUM_OF_BLOCK_TYPES - 1)
-        self.block = BLOCKS[self.block_type]
-        self.height = len(self.block)
-        self.width = len(self.block[0])
-        self.x = x
-        self.y = y
+	def __init__(self, x, y):
+		self.block_type = random.randint(0, NUM_OF_BLOCK_TYPES - 1)
+		self.block = BLOCKS[self.block_type]
+		self.height = len(self.block)
+		self.width = len(self.block[0])
+		self.x = x
+		self.y = y
 
-    def create_nblock(self, given_block):
-        new_block = []
-        for block in given_block:
-            b = []
-            for is_block in block:
-                if is_block:
-                    b.append(SQUARE)
-                else:
-                    b.append(EMPTY_BLOCK)
-            new_block.append(b)		
-        return '\n'.join([''.join(block) for block in new_block])
+	def create_nblock(self, given_block):
+		new_block = []
+		for block in given_block:
+			b = []
+			for is_block in block:
+				if is_block:
+					b.append(SQUARE)
+				else:
+					b.append(EMPTY_BLOCK)
+			new_block.append(b)		
+		return '\n'.join([''.join(block) for block in new_block])
 
-    def rotate_anticlock_wise(self):
-        self.block = [[self.block[j][i] for j in range(len(self.block))] for i in range(len(self.block[0]) - 1, -1, -1)]
+	def rotate_anticlockwise(self):
+		self.block = [[self.block[j][i] for j in range(len(self.block))] for i in range(len(self.block[0]) - 1, -1, -1)]
 
-    def rotate_clockwise(self):
-        for _ in range(3):
-            self.rotate_anticlockwise()
+	def rotate_clockwise(self):
+		for _ in range(3):
+			self.rotate_anticlockwise()
 
-    def return_block(self):
-        return self.block	
-    def get_x(self):
-        return self.x
+	def return_block(self):
+		return self.block	
+	def get_x(self):
+		return self.x
 
-    def get_y(self):
-        return self.y
+	def get_y(self):
+		return self.y
 
-    def get_height(self):
-        return self.height
+	def get_height(self):
+		return self.height
 
-    def get_width(self):
-        return self.width
+	def get_width(self):
+		return self.width
 
-    def update_x(self,x):
-        self.x = x
+	def update_x(self,x):
+		self.x = x
 
-    def update_y(self, y):
-        self.y = y
+	def update_y(self, y):
+		self.y = y
 
 
 BOARD = Board()
@@ -269,20 +271,20 @@ LISTENING = 1
 
 
 def key_listener():
-    global BOARD
-    global LISTENING
-    while LISTENING:
-        key = msvcrt.getch()
-    if key == b'\xe0':
-        key = msvcrt.getch()
-        if key.decode() in KEY_MAPPINGS:
-            if BOARD is not None:
-                if KEY_MAPPINGS[key.decode () ] == "Up":
-                    BOARD.rotate_block()
-                elif KEY_MAPPINGS[key.decode () ] == "Left":
-                    BOARD.change_position(0)
-                elif KEY_MAPPINGS[key.decode () ] == "Right":
-                    BOARD.change_position(1)
+	global BOARD
+	global LISTENING
+	while LISTENING:
+		key = msvcrt.getch()
+		if key == b'\xe0':
+			key = msvcrt.getch()
+			if key.decode() in KEY_MAPPINGS:
+				if BOARD is not None:
+					if KEY_MAPPINGS[key.decode()] == "Up":
+						BOARD.rotate_block()
+					elif KEY_MAPPINGS[key.decode()] == "Left":
+						BOARD.change_position(0)
+					elif KEY_MAPPINGS[key.decode()] == "Right":
+						BOARD.change_position(1)
 
 
 def signal_handler(sig, frame):
