@@ -53,7 +53,7 @@ HORIZONTAL_WALL, VERTICAL_WALL = "━", "┃"
 SCOREBOARD_WIDTH, SCOREBOARD_HEIGHT = 18 + 2, 1 + 2
 GAME_BOARD_WIDTH, GAME_BOARD_HEIGHT = 20 + 2, 20 + 2
 GAME_WIDTH, GAME_HEIGHT = 10, 20
-RIGHT_MENU_WIDTH, RIGHT_MENU_HEIGHT = 10 + 2, 8 + 2
+RIGHT_MENU_WIDTH, RIGHT_MENU_HEIGHT = 20 + 2, 8 + 2
 BOARD_HEIGHT = 25
 GAME_BOARD_OFFSET = SCOREBOARD_WIDTH
 RIGHT_MENU_OFFSET = GAME_BOARD_OFFSET + GAME_BOARD_WIDTH
@@ -65,8 +65,7 @@ class Board:
         self.score = 0
         rows = [0] * GAME_WIDTH
         self.blocks = [rows.copy() for _ in range(GAME_HEIGHT)]
-        self.blocks_copy = deepcopy(self.blocks)
-        self.current_block = Block(START_X, START_Y)
+        self.current_block = None
         self.stdscr = curses.initscr()
         self.scoreboard_menu = self.stdscr.subwin(SCOREBOARD_HEIGHT, SCOREBOARD_WIDTH, 0, 0)
         self.main_board = self.stdscr.subwin(GAME_BOARD_HEIGHT, GAME_BOARD_WIDTH, 0, GAME_BOARD_OFFSET)
@@ -80,7 +79,6 @@ class Board:
         self.gravity_proc = None
         self.timing = 0.5
         self.lines_cleared = 0
-        self.next_block = Block(START_X, START_Y)
 
     def game_over(self):
         global GAME_RUNNING
@@ -90,8 +88,6 @@ class Board:
         curses.endwin()
 
     def start_game(self):
-        global GAME_RUNNING
-        GAME_RUNNING = 1
         self.create_all_boards()
         self.get_new_block()
 
@@ -106,7 +102,7 @@ class Board:
             for width in range(len(block[0])):
                 if block[height][width] and self.blocks[START_Y + height][START_X + width]:
                     return True
-        return False
+        return  False
 
     def check_collision(self, new_x, new_y):
         block = self.current_block.return_block()
@@ -138,56 +134,65 @@ class Board:
                     self.game_over()
                 break
             self.shift_block(self.current_block.get_x(), self.current_block.get_y() + 1)
-        if GAME_RUNNING:
-            self.get_new_block()
-            self.check_lines()
+        self.check_lines()
+        self.get_new_block()
 
     def get_new_block(self):
-        self.blocks = deepcopy(self.blocks_copy)
-        self.current_block = self.next_block
-        self.next_block = Block(START_X, START_Y)
-        self.update_next_block()
+        self.current_block = Block(START_X, START_Y)
         self.insert_block_into_board(self.current_block.get_x(), self.current_block.get_y()) 
         self.gravity_proc = threading.Thread(target=self.block_gravity)
         self.gravity_proc.start()
 
     def update_board(self):
         while True:
-            self.update_main_board(self.blocks_copy)
+            self.update_main_board()
             key = self.stdscr.getch()
             if key == curses.KEY_LEFT:
                 self.change_position(is_right=0)
             elif key == curses.KEY_RIGHT:
                 self.change_position(is_right=1)
             elif key == curses.KEY_UP:
-                self.rotate_block(clockwise=1)
+                self.rotate_clockwise()
             elif key == ord(' '):
                 self.hard_drop()
             elif key == ord('z'):
-                self.rotate_block(clockwise=0)
+                self.rotate_anticlockwise()
             self.stdscr.refresh()
+
+    def remove_old_block(self, blocks_supplied=None):
+        if blocks_supplied is None:
+            blocks_supplied = self.blocks
+        old_x, old_y = self.current_block.get_x(), self.current_block.get_y()
+        block = self.current_block.return_block()
+        block_height = len(block)
+        for width in range(len(block[0])):
+            for height in range(block_height):
+                if block[height][width]:
+                    blocks_supplied[old_y + height][old_x + width] = 0
+                    self.main_board.addstr(old_y + height + 1, (old_x + width)*2 + 1, EMPTY_BLOCK)
+        self.main_board.refresh()
 
     def insert_block_into_board(self, x, y):
         block = self.current_block.return_block()
         block_height = len(block)
-        self.blocks_copy = deepcopy(self.blocks)
 
         for height in range(block_height):
             for width in range(len(block[0])):
                     if block[height][width]:
-                        self.blocks_copy[y + height][x + width] = 1
+                        self.blocks[y + height][x + width] = 1
 
     def shift_block(self, new_x, new_y):
+        self.remove_old_block()
         self.current_block.update_x(new_x)
         self.current_block.update_y(new_y)
         self.insert_block_into_board(self.current_block.get_x(), self.current_block.get_y())
-        self.update_main_board(self.blocks_copy)
 
     def change_position(self, is_right):
+        self.remove_old_block()
         if is_right:
             try:
                 if not self.check_collision(self.current_block.get_x() + 1, self.current_block.get_y()):
-                    self.current_block.update_x(self.current_block.get_x() + 1)
+                    self.current_block.update_x(self.current_block.get_x() + 1  )
             except Exception as e:
                 return
         else:
@@ -197,21 +202,14 @@ class Board:
                     self.current_block.update_x(self.current_block.get_x() - 1)
             except Exception as e:
                 return
-        self.shift_block(self.current_block.get_x(), self.current_block.get_y())
 
-    def rotate_block(self, clockwise=0):
-        try:
-            if clockwise:
-                self.current_block.rotate_clockwise()
-            else:
-                self.current_block.rotate_anticlockwise()
-            self.shift_block(self.current_block.get_x(), self.current_block.get_y())
-        except:
-            if clockwise:
-                self.current_block.rotate_anticlockwise()
-            else:
-                self.current_block.rotate_clockwise()
-            self.shift_block(self.current_block.get_x(), self.current_block.get_y())
+    def rotate_clockwise(self):
+        self.remove_old_block()
+        self.current_block.rotate_clockwise()
+    
+    def rotate_anticlockwise(self):
+        self.remove_old_block()
+        self.current_block.rotate_anticlockwise()
 
     def check_lines(self):
         lines = []
@@ -229,10 +227,9 @@ class Board:
         self.score += 10 * multiplier
         self.lines_cleared += len(lines)
         if (self.lines_cleared + 1) % 11 == 0:
-             self.timing /= 1.4
-        self.blocks_copy = deepcopy(self.blocks)
+             self.timing /= 1.2
         self.update_score()
-        self.update_main_board(self.blocks_copy)
+        self.update_main_board()
 
     # Game features
     def hard_drop(self):
@@ -245,18 +242,16 @@ class Board:
             except:
                 break
             i += 1
-        self.shift_block(self.current_block.get_x(), self.current_block.get_y() + i - 1)
+        self.shift_block(self.current_block.get_x(), self.current_block.get_y() + i -1)
 
     # Board and menu updates/creations 
     def update_score(self):
         self.scoreboard_menu.addstr(1, 1, f"Score: {self.score}")
         self.scoreboard_menu.refresh()
     
-    def update_main_board(self, blocks=None):
-        if blocks is None:
-            blocks = self.blocks
-        for y in range(len(blocks)):
-            self.main_board.addstr(y + 1, 1, ''.join([SQUARE if x else EMPTY_BLOCK for x in blocks[y]]))
+    def update_main_board(self):
+        for y in range(len(self.blocks)):
+            self.main_board.addstr(y + 1, 1, ''.join([SQUARE if x else EMPTY_BLOCK for x in self.blocks[y]]))
         # for y in range(len(self.blocks)):
         #     for x in range(len(self.blocks[0])):
         #         if self.blocks[y][x]: self.main_board.addstr(y + 1, x*2 + 1, SQUARE)
@@ -267,15 +262,6 @@ class Board:
         self.create_main_board()
         self.create_right_menu()
         self.scoreboard_menu.addstr(1, 1, f"Score: {self.score}")
-
-    def update_next_block(self):
-        self.right_menu.clear()
-        self.right_menu.box()
-        next_block = self.next_block.return_block()
-        self.right_menu.addstr(1, 1, "Next Block:")
-        for y in range(len(next_block)):
-            self.right_menu.addstr(RIGHT_MENU_HEIGHT//3 + y + 1, RIGHT_MENU_WIDTH//3, ''.join([SQUARE if x else EMPTY_BLOCK for x in next_block[y]]))
-        self.right_menu.refresh()
 
     def create_right_menu(self):
         self.right_menu.box()
@@ -343,7 +329,7 @@ class Block:
 
 
 BOARD = Board()
-GAME_RUNNING = 0
+GAME_RUNNING = 1
 
 
 def signal_handler(sig, frame):
