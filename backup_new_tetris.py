@@ -98,6 +98,7 @@ class Board:
         GAME_RUNNING = 0
         self.stdscr.addstr("Game Over! (Ctrl+C)")
         curses.endwin()
+        print("Game Over!")
 
     def start_game(self):
         global GAME_RUNNING
@@ -105,7 +106,6 @@ class Board:
         self.create_all_boards()
         self.get_new_block()
         self.update_board()
-        self.game_over()
 
     def is_gameover(self):
         block = self.current_block.return_block()
@@ -162,7 +162,8 @@ class Board:
         self.gravity_proc.start()
 
     def update_board(self):
-        while True:
+        global GAME_RUNNING
+        while GAME_RUNNING:
             self.update_main_board(self.blocks_copy)
             key = self.stdscr.getch()
             if key == curses.KEY_LEFT:
@@ -340,9 +341,10 @@ class Board:
         self.instructions_menu.addstr(1,1, "Key Bindings:")
         self.instructions_menu.addstr(3,1, "LEFT/RIGHT: Movement")
         self.instructions_menu.addstr(4,1, "UP: rotate clws")
-        self.instructions_menu.addstr(5,1, "c: Hold")
-        self.instructions_menu.addstr(6,1, "z: rotate anticlws")
-        self.instructions_menu.addstr(7,1, "<space>: hard drop")
+        self.instructions_menu.addstr(5,1, "DOWN: fast drop")
+        self.instructions_menu.addstr(6,1, "c: Hold")
+        self.instructions_menu.addstr(7,1, "z: rotate anticlws")
+        self.instructions_menu.addstr(8,1, "<space>: hard drop")
 
     def get_self_blocks(self):
         return self.blocks

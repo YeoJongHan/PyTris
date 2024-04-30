@@ -64,6 +64,8 @@ BLOCK_HOLD_OFFSET = SCOREBOARD_HEIGHT
 INST_MENU_OFFSET_X, INST_MENU_OFFSET_Y = RIGHT_MENU_OFFSET, RIGHT_MENU_HEIGHT
 
 START_X, START_Y = 5, 0
+GAME_RUNNING = 0
+
 
 class Board:
     def __init__(self):
@@ -85,19 +87,21 @@ class Board:
         curses.curs_set(0)
 
         self.gravity_proc = None
+        self.proc_event = None
         self.timing = 0.5
         self.lines_cleared = 0
         self.next_block = Block(START_X, START_Y)
 
         self.can_hold = 0
         self.block_held = None
+        self.hard_dropped = 0
 
     def game_over(self):
         global GAME_RUNNING
         self.score = 0
         GAME_RUNNING = 0
         self.stdscr.addstr("Game Over! (Ctrl+C)")
-        curses.endwin()
+        print("Game Over!")
 
     def start_game(self):
         global GAME_RUNNING
@@ -105,7 +109,6 @@ class Board:
         self.create_all_boards()
         self.get_new_block()
         self.update_board()
-        self.game_over()
 
     def is_gameover(self):
         block = self.current_block.return_block()
@@ -133,10 +136,10 @@ class Board:
                     return True
         return False
 
-    def block_gravity(self):
+    def block_gravity(self, event):
         global GAME_RUNNING
-        while GAME_RUNNING:
-            time.sleep(self.timing)
+        time.sleep(self.timing)
+        while GAME_RUNNING and not event.is_set():
             try:
                 if self.check_collision(self.current_block.get_x(), self.current_block.get_y() + 1):
                     if self.is_gameover():
@@ -147,7 +150,8 @@ class Board:
                     self.game_over()
                 break
             self.shift_block(self.current_block.get_x(), self.current_block.get_y() + 1)
-        if GAME_RUNNING:
+            time.sleep(self.timing)
+        if GAME_RUNNING and not event.is_set():
             self.get_new_block()
             self.check_lines()
 
@@ -158,11 +162,15 @@ class Board:
         self.next_block = Block(START_X, START_Y)
         self.update_next_block()
         self.insert_block_into_board(self.current_block.get_x(), self.current_block.get_y())
-        self.gravity_proc = threading.Thread(target=self.block_gravity)
+        if self.gravity_proc is not None: # Ensures that only 1 block_gravitythread is running at a time
+            if self.gravity_proc.is_alive(): self.proc_event.set()
+        self.proc_event = threading.Event()
+        self.gravity_proc = threading.Thread(target=self.block_gravity, args=(self.proc_event,))
         self.gravity_proc.start()
 
     def update_board(self):
-        while True:
+        global GAME_RUNNING
+        while GAME_RUNNING:
             self.update_main_board(self.blocks_copy)
             key = self.stdscr.getch()
             if key == curses.KEY_LEFT:
@@ -264,7 +272,8 @@ class Board:
                 break
             i += 1
         self.shift_block(self.current_block.get_x(), self.current_block.get_y() + i - 1)
-        
+        self.get_new_block()
+        self.check_lines()        
 
     def hold_block(self):
         if self.can_hold:
@@ -340,9 +349,10 @@ class Board:
         self.instructions_menu.addstr(1,1, "Key Bindings:")
         self.instructions_menu.addstr(3,1, "LEFT/RIGHT: Movement")
         self.instructions_menu.addstr(4,1, "UP: rotate clws")
-        self.instructions_menu.addstr(5,1, "c: Hold")
-        self.instructions_menu.addstr(6,1, "z: rotate anticlws")
-        self.instructions_menu.addstr(7,1, "<space>: hard drop")
+        self.instructions_menu.addstr(5,1, "DOWN: fast drop")
+        self.instructions_menu.addstr(6,1, "c: Hold")
+        self.instructions_menu.addstr(7,1, "z: rotate anticlws")
+        self.instructions_menu.addstr(8,1, "<space>: hard drop")
 
     def get_self_blocks(self):
         return self.blocks
@@ -400,20 +410,15 @@ class Block:
 		self.y = y
 
 
-BOARD = Board()
-GAME_RUNNING = 0
-
-
 def signal_handler(sig, frame):
 	global GAME_RUNNING
 	print("Exiting")
 	GAME_RUNNING = 0
-	exit()
 
 def main():
-	global BOARD
-	signal.signal(signal.SIGINT, signal_handler)
-	BOARD.start_game()
+    BOARD = Board()
+    signal.signal(signal.SIGINT, signal_handler)
+    BOARD.start_game()
 
 if __name__=="__main__":
 	main()
