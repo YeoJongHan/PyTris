@@ -1,7 +1,5 @@
 import time
 import random
-import os
-import msvcrt
 import threading
 import signal
 import curses
