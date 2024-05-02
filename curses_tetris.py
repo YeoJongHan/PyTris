@@ -501,11 +501,11 @@ class Board:
         self.instructions_menu.box()
         self.instructions_menu.addstr(1,1, "Key Bindings:")
         self.instructions_menu.addstr(3,1, "LEFT/RIGHT: Movement")
-        self.instructions_menu.addstr(4,1, "UP: rotate clws")
-        self.instructions_menu.addstr(5,1, "DOWN: fast drop")
+        self.instructions_menu.addstr(4,1, "UP: Rotate clws")
+        self.instructions_menu.addstr(5,1, "DOWN: Fast drop")
         self.instructions_menu.addstr(6,1, "c: Hold")
-        self.instructions_menu.addstr(7,1, "z: rotate anticlws")
-        self.instructions_menu.addstr(8,1, "<space>: hard drop")
+        self.instructions_menu.addstr(7,1, "z: Rotate anticlws")
+        self.instructions_menu.addstr(8,1, "<space>: Hard drop")
 
 
     def get_self_blocks(self):
