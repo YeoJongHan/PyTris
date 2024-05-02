@@ -1,5 +1,8 @@
 # PyTris
 
+### Why?
+> Because Tetris in Python is needed
+
 ### Requirements to play
 > Windows + Python 3.11 + `pip install windows-curses==2.3.2`
 
